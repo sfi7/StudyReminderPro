@@ -66,13 +66,41 @@ pip install -r requirements.txt
 python app.py
 ```
 
+## 📸 Screenshots
+
+### 🖥️ Dashboard & Smart Scheduling
+A dynamic dashboard containing active study targets, Smart Goals progress, a Live Forecast window, and real-time AI Insights.
+
+<p align="center">
+  <img src="assets/dashboard.png" width="800" alt="Study Reminder Pro Dashboard"/>
+</p>
+
 ---
 
-## 📸 Screenshots
-*(Add screenshots of your application here to showcase its beautiful UI)*
-- **Dashboard View:** `![Dashboard](link-to-image)`
-- **Pomodoro Timer:** `![Pomodoro](link-to-image)`
-- **Analytics & Heatmap:** `![Analytics](link-to-image)`
+### 📚 Subject & Task Management
+Organize up to 7+ active university subjects with modular progress bars, active countdowns, and rapid single-click study counters.
+
+<p align="center">
+  <img src="assets/subjects.png" width="800" alt="Study Reminder Pro Subjects"/>
+</p>
+
+---
+
+### 🍅 Pomodoro Focus Timer
+An integrated visual Pomodoro timer to manage work intervals, break periods, and study logs directly connected to active subjects.
+
+<p align="center">
+  <img src="assets/pomodoro.png" width="800" alt="Study Reminder Pro Pomodoro Timer"/>
+</p>
+
+---
+
+### 📈 Weekly Productivity Analytics
+Detailed analytical dashboard tracing weekly study trends, peak performance hours, current streaks, and subject distribution percentages.
+
+<p align="center">
+  <img src="assets/analytics.png" width="800" alt="Study Reminder Pro Weekly Analytics"/>
+</p>
 
 ---
 
