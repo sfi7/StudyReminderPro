@@ -22,14 +22,16 @@ Study Reminder Pro is packed with powerful features designed to streamline your 
 
 | 🚀 Core Features | 📝 Description |
 |:---|:---|
-| **📚 Subject Management** | Track up to 7+ subjects with customizable icons, colors, progress, and rich notes. |
-| **📊 Advanced Analytics** | Animated circular & linear progress bars, 30-day heatmaps, and KPI cards. |
+| **🎭 Multi-Mode Workspace** | Dynamically switch between **Study Mode** (academics) and **Lifestyle & Growth Mode** (personal habits). |
+| **📚 Subject Management** | Track active subjects with customizable icons, colors, progress, and rich notes. |
+| **🏆 Course & Skill Builder** | Plan and track modules/lessons for self-study online courses with custom difficulty parameters. |
 | **📅 Exam Countdown** | Color-coded badges displaying precise days remaining until each exam. |
-| **🍅 Pomodoro Timer** | Integrated, animated canvas timer with Work / Break / Long Break modes. |
-| **🔥 Study Streaks** | Gamified daily streak tracking with auto-awarded milestone badges. |
+| **⏱️ Professional Focus Mode**| Premium iOS-style analog stopwatch, segments logging, progress arcs, and digital clock view. |
+| **🎵 Ambient Sound Panel** | Built-in sound machine featuring HQ audio (Rain, Ocean Waves, Clock Ticking) and volume controller. |
+| **📊 Advanced Analytics** | Weekly analytics, study trends, best streak metrics, and XP level advancement charts. |
+| **🔥 Habits & Streaks** | Interactive daily habit checklist, streak trackers, and dynamic XP leveling. |
 | **🌙 Dynamic Themes** | Beautiful Dark / Light mode with a one-click UI toggle. |
 | **💾 Robust Data Integrity**| Auto-saves to `data/study_data.json` with a 1-click backup and restore system. |
-| **⚠️ Smart Notifications** | Desktop toast notifications for exams within 3 days. |
 | **💡 AI-Curated Insights**| Daily actionable study tips displayed on every launch. |
 
 ---
@@ -68,38 +70,65 @@ python app.py
 
 ## 📸 Screenshots
 
-### 🖥️ Dashboard & Smart Scheduling
-A dynamic dashboard containing active study targets, Smart Goals progress, a Live Forecast window, and real-time AI Insights.
+### 🎭 Multi-Mode Selection
+A beautifully crafted startup screen allowing users to launch the workspace customized for Academics or Personal Self-Growth.
 
 <p align="center">
-  <img src="assets/dashboard.png" width="800" alt="Study Reminder Pro Dashboard"/>
+  <img src="assets/mode_selection.png" width="800" alt="Study Reminder Pro Mode Selection"/>
 </p>
 
 ---
 
-### 📚 Subject & Task Management
-Organize up to 7+ active university subjects with modular progress bars, active countdowns, and rapid single-click study counters.
+### ⏱️ iOS-Style Focus Stopwatch (Analog Mode)
+A masterclass visual analog clock with a secondary minutes sub-dial, a circular progress arc, live elapsed timer, and segments list.
 
 <p align="center">
-  <img src="assets/subjects.png" width="800" alt="Study Reminder Pro Subjects"/>
+  <img src="assets/focus_analog.png" width="800" alt="iOS-Style Analog Focus Mode"/>
 </p>
 
 ---
 
-### 🍅 Pomodoro Focus Timer
-An integrated visual Pomodoro timer to manage work intervals, break periods, and study logs directly connected to active subjects.
+### 🎵 Ambient Sound System & Controls
+Equipped with dynamic HQ background audio selectors, a smooth master volume slider, instant mute toggles, and shortcut keys.
 
 <p align="center">
-  <img src="assets/pomodoro.png" width="800" alt="Study Reminder Pro Pomodoro Timer"/>
+  <img src="assets/focus_sound_panel.png" width="800" alt="Ambient Sound System"/>
 </p>
 
 ---
 
-### 📈 Weekly Productivity Analytics
-Detailed analytical dashboard tracing weekly study trends, peak performance hours, current streaks, and subject distribution percentages.
+### 📚 Study Workspace (Subjects & Pomodoro)
+Academic hub loaded with customizable subjects, study notes, target deadlines, and an interactive Pomodoro workspace.
 
 <p align="center">
-  <img src="assets/analytics.png" width="800" alt="Study Reminder Pro Weekly Analytics"/>
+  <img src="assets/pomodoro.png" width="800" alt="Study Reminder Pro Pomodoro Workspace"/>
+</p>
+
+---
+
+### 🌱 Lifestyle & Growth Dashboard
+Fully integrated self-growth panel showcasing dynamic daily checklists, skill cards, and real-time focus timers.
+
+<p align="center">
+  <img src="assets/lifestyle_dashboard.png" width="800" alt="Lifestyle and Growth Dashboard"/>
+</p>
+
+---
+
+### 📝 Course & Skill Acquisition Panel
+Add, edit, track and analyze your online learning progress with a dedicated module counter and completion targets.
+
+<p align="center">
+  <img src="assets/lifestyle_skills.png" width="800" alt="Lifestyle Course and Skill Acquisition"/>
+</p>
+
+---
+
+### 📈 Gamified Growth Analytics & XP
+Track your best streaks, complete hours of deep focus, analyze progress levels, and earn XP to level up your performance.
+
+<p align="center">
+  <img src="assets/lifestyle_analytics.png" width="800" alt="Gamified Analytics & XP"/>
 </p>
 
 ---
