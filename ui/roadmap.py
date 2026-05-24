@@ -73,6 +73,15 @@ class RoadmapView(ctk.CTkScrollableFrame):
                      font=FONTS["body"], text_color=c["text_secondary"]).pack(pady=40)
 
     def refresh(self):
+        current_data_ver = self.db.data_version
+        current_settings_ver = self.db.settings_version
+        if (getattr(self, "_last_data_version", -1) == current_data_ver and 
+            getattr(self, "_last_settings_version", -1) == current_settings_ver):
+            return
+            
+        self._last_data_version = current_data_ver
+        self._last_settings_version = current_settings_ver
+
         for w in self.winfo_children():
             w.destroy()
         self._build()

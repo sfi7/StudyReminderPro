@@ -17,7 +17,43 @@ class AnalyticsEngine:
         # Merge new detailed sessions and legacy pomodoro sessions
         new_sess = self.db._sessions_db.sessions
         legacy_sess = self.db._sessions_db.pomodoro_sessions
-        return new_sess + legacy_sess
+        
+        # De-duplicate legacy pomodoro sessions that match detailed sessions.
+        # A legacy session is a duplicate if it shares subject_id, duration, and occurs within 5 seconds.
+        filtered_legacy = []
+        for ls in legacy_sess:
+            ls_ts = ls.get("timestamp")
+            if not ls_ts:
+                filtered_legacy.append(ls)
+                continue
+            try:
+                ls_dt = datetime.fromisoformat(ls_ts)
+            except ValueError:
+                filtered_legacy.append(ls)
+                continue
+                
+            is_dup = False
+            for ns in new_sess:
+                ns_ts = ns.get("timestamp")
+                if not ns_ts:
+                    continue
+                try:
+                    ns_dt = datetime.fromisoformat(ns_ts)
+                except ValueError:
+                    continue
+                
+                ls_mins = ls.get("minutes", 0)
+                ns_mins = ns.get("duration_minutes", ns.get("duration_min", 0))
+                
+                if (ls.get("subject_id") == ns.get("subject_id") and 
+                    abs(ls_mins - ns_mins) < 0.1 and 
+                    abs((ls_dt - ns_dt).total_seconds()) < 5):
+                    is_dup = True
+                    break
+            if not is_dup:
+                filtered_legacy.append(ls)
+                
+        return new_sess + filtered_legacy
 
     def get_sessions_by_date_range(self, start_date, end_date):
         sessions = self.get_all_sessions()

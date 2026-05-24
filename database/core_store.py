@@ -63,6 +63,8 @@ class CoreStore:
         os.makedirs(BACKUP_DIR, exist_ok=True)
         self._app_data = self._load_app_data()
         self._settings_data = self._load_settings_data()
+        self.data_version = 0
+        self.settings_version = 0
 
     def _load_app_data(self):
         data = read_json(DB_FILE, default=default_app_data())
@@ -94,9 +96,11 @@ class CoreStore:
         return data
 
     def save_app_data(self):
+        self.data_version += 1
         atomic_write_json(DB_FILE, self._app_data)
 
     def save_settings_data(self):
+        self.settings_version += 1
         atomic_write_json(SETTINGS_FILE, self._settings_data)
 
     @property

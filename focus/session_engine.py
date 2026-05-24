@@ -28,6 +28,9 @@ class SessionEngine:
         self.is_running = False
         self.is_paused = False
         
+        self.mode = "Work"
+        self.is_break = False
+        
         self.interruptions = 0
         self._last_tick = None
         self._lock = threading.Lock()
@@ -43,7 +46,8 @@ class SessionEngine:
                 "target_duration_min": self.target_duration_min,
                 "remaining_seconds": self.remaining_seconds,
                 "started_at": self.started_at,
-                "interruptions": self.interruptions
+                "interruptions": self.interruptions,
+                "mode": getattr(self, "mode", "Work")
             }
             self.recovery.save_snapshot(state)
             self._last_autosave = time.time()

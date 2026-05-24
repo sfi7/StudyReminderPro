@@ -64,6 +64,15 @@ class AnalyticsView(ctk.CTkFrame):
 
     def refresh(self):
         """Safely refresh the analytics view."""
+        current_data_ver = self.db.data_version
+        current_settings_ver = self.db.settings_version
+        if (getattr(self, "_last_data_version", -1) == current_data_ver and 
+            getattr(self, "_last_settings_version", -1) == current_settings_ver):
+            return
+            
+        self._last_data_version = current_data_ver
+        self._last_settings_version = current_settings_ver
+
         if hasattr(self, "_deferred_job") and self._deferred_job:
             self.after_cancel(self._deferred_job)
             self._deferred_job = None
@@ -71,7 +80,7 @@ class AnalyticsView(ctk.CTkFrame):
         # Recreate charts engine to pick up new theme colors
         self.ce = ChartsEngine(self.tm) if self.tm else None
         
-        for w in self._widgets:
+        for w in self._scroll.winfo_children():
             try: w.destroy()
             except: pass
         self._widgets.clear()
@@ -165,11 +174,43 @@ class AnalyticsView(ctk.CTkFrame):
 
         # ── Exam Pressure ──
         if self.db.subjects:
-            sec_lbl = self._section(parent, "🚨 Exam Pressure Analysis", c, pad_x=24)
-            self._widgets.append(sec_lbl)
+            active_pressure = []
+            archived_pressure = []
             for subj in self.db.subjects:
                 if subj.get("exam_date"):
+                    days = self.db.days_until_exam(subj)
+                    is_past_exam = (days is not None and days < 0)
+                    is_finished = (subj.get("total_lectures", 0) > 0 and subj.get("completed_lectures", 0) >= subj.get("total_lectures", 0))
+                    if is_past_exam or is_finished:
+                        archived_pressure.append(subj)
+                    else:
+                        active_pressure.append(subj)
+            
+            if active_pressure:
+                sec_lbl = self._section(parent, "🚨 Exam Pressure Analysis", c, pad_x=24)
+                self._widgets.append(sec_lbl)
+                for subj in active_pressure:
                     self._exam_pressure_row(parent, subj, c)
+            
+            if archived_pressure:
+                archive_btn = ctk.CTkButton(
+                    parent, text="▶ Archived & Completed History", font=FONTS["subheading"],
+                    fg_color="transparent", text_color=c["text_secondary"],
+                    hover_color=c["bg_secondary"], anchor="w",
+                    command=self._toggle_analytics_archive
+                )
+                archive_btn.pack(fill="x", padx=24, pady=(20, 5))
+                self._widgets.append(archive_btn)
+                self._archive_btn = archive_btn
+                
+                self._archive_container = ctk.CTkFrame(parent, fg_color="transparent")
+                self._archive_container.pack(fill="x", pady=0)
+                self._archive_container.pack_forget() # Hidden by default
+                self._archive_visible = False
+                self._widgets.append(self._archive_container)
+                
+                for subj in archived_pressure:
+                    self._exam_pressure_row(self._archive_container, subj, c)
 
         spacer = ctk.CTkFrame(parent, fg_color="transparent", height=24)
         spacer.pack()
@@ -235,3 +276,13 @@ class AnalyticsView(ctk.CTkFrame):
                 self.toast("Data exported successfully!", "success")
             else:
                 self.toast(f"Export failed: {msg}", "error")
+
+    def _toggle_analytics_archive(self):
+        if getattr(self, "_archive_visible", False):
+            self._archive_container.pack_forget()
+            self._archive_btn.configure(text="▶ Archived & Completed History")
+            self._archive_visible = False
+        else:
+            self._archive_container.pack(fill="x", pady=0)
+            self._archive_btn.configure(text="▼ Archived & Completed History")
+            self._archive_visible = True

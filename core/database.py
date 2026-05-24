@@ -9,6 +9,8 @@ from database.tasks_db import TasksDB
 from database.settings_db import SettingsDB
 from database.analytics_db import AnalyticsDB
 from database.sessions_db import SessionsDB
+from database.skills_db import SkillsDB
+from database.habits_db import HabitsDB
 from utils.logger import log
 
 # Exported for backward compatibility
@@ -28,6 +30,10 @@ class Database:
         self._settings_db = SettingsDB(self._store)
         self._analytics_db = AnalyticsDB(self._store)
         self._sessions_db = SessionsDB(self._store)
+        
+        # New Lifestyle services
+        self._skills_db = SkillsDB(self._store)
+        self._habits_db = HabitsDB(self._store)
 
     # ---------- Facade for Settings ----------
     @property
@@ -152,3 +158,55 @@ class Database:
         if new_badges:
             self._store.save_app_data()
         return new_badges
+
+    # ---------- Database Versioning properties ----------
+    @property
+    def data_version(self):
+        return self._store.data_version
+
+    @property
+    def settings_version(self):
+        return self._store.settings_version
+
+    # ---------- Facade for Skills ----------
+    @property
+    def skills(self):
+        return self._skills_db.skills
+
+    def add_skill(self, skill_dict=None):
+        return self._skills_db.add_skill(skill_dict)
+
+    def update_skill(self, skill_id, **kwargs):
+        return self._skills_db.update_skill(skill_id, **kwargs)
+
+    def delete_skill(self, skill_id):
+        self._skills_db.delete_skill(skill_id)
+
+    def get_skill(self, skill_id):
+        return self._skills_db.get_skill(skill_id)
+
+    def remaining_modules(self, skill):
+        return self._skills_db.remaining_modules(skill)
+
+    def progress_pct_skill(self, skill):
+        return self._skills_db.progress_pct(skill)
+
+    # ---------- Facade for Habits ----------
+    @property
+    def habits(self):
+        return self._habits_db.habits
+
+    def add_habit(self, name):
+        return self._habits_db.add_habit(name)
+
+    def delete_habit(self, habit_id):
+        self._habits_db.delete_habit(habit_id)
+
+    def toggle_habit(self, habit_id, date_str=None):
+        return self._habits_db.toggle_habit(habit_id, date_str)
+
+    def is_habit_done(self, habit_id, date_str=None):
+        return self._habits_db.is_habit_done(habit_id, date_str)
+
+    def get_habit_streak(self, habit):
+        return self._habits_db.get_habit_streak(habit)

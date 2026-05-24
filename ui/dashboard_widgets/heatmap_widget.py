@@ -44,6 +44,35 @@ class HeatmapWidget(ctk.CTkFrame):
             return "#1e1e1e" # Fallback dark
         return hex_color
 
+    def _create_rounded_rect(self, x1, y1, x2, y2, radius, **kwargs):
+        points = [
+            x1 + radius, y1,
+            x2 - radius, y1,
+            x2, y1,
+            x2, y1 + radius,
+            x2, y2 - radius,
+            x2, y2,
+            x2 - radius, y2,
+            x1 + radius, y2,
+            x1, y2,
+            x1, y2 - radius,
+            x1, y1 + radius,
+            x1, y1
+        ]
+        return self.canvas.create_polygon(points, smooth=True, **kwargs)
+
+    def _interpolate_color(self, color1, color2, factor):
+        """Interpolates between two hex colors by a factor in [0, 1]."""
+        if not color1.startswith("#") or not color2.startswith("#"):
+            return color2
+        try:
+            c1 = [int(color1[i:i+2], 16) for i in (1, 3, 5)]
+            c2 = [int(color2[i:i+2], 16) for i in (1, 3, 5)]
+            res = [int(c1[j] + (c2[j] - c1[j]) * factor) for j in range(3)]
+            return f"#{res[0]:02x}{res[1]:02x}{res[2]:02x}"
+        except Exception:
+            return color2
+
     def refresh(self):
         self.canvas.delete("all")
         
@@ -70,55 +99,77 @@ class HeatmapWidget(ctk.CTkFrame):
                 log.error(f"Error parsing session for heatmap: {e}")
             
         today = date.today()
-        num_weeks = 52
-        num_days = num_weeks * 7
-        start_date = today - timedelta(days=num_days - 1)
         
-        # Ensure start_date is a Sunday (for alignment)
+        # Find start date (52 weeks ago)
+        start_date = today - timedelta(weeks=52)
+        # Shift start_date to the nearest Sunday
         idx = (start_date.weekday() + 1) % 7
         start_date = start_date - timedelta(days=idx)
         
+        # Calculate exactly how many weeks we need to display all days up to today
+        total_days = (today - start_date).days + 1
+        num_weeks = (total_days + 6) // 7 # Ceil division
+        
         box_size = 12
         margin = 3
+        x_offset = 32 # Room for weekday labels
         
-        # Set canvas width to fit 52 weeks
-        required_width = num_weeks * (box_size + margin) + 20
+        # Set canvas width to fit weeks + weekday labels
+        required_width = x_offset + num_weeks * (box_size + margin) + 10
         self.canvas.configure(width=required_width)
         
-        # Draw the grid
+        # Draw weekday labels on the left side
+        for r_idx, label in [(1, "Mon"), (3, "Wed"), (5, "Fri")]:
+            y_text = r_idx * (box_size + margin) + 15 + box_size // 2
+            self.canvas.create_text(x_offset - 8, y_text, text=label,
+                                    font=("Segoe UI", 9), fill=self.colors["text_muted"], anchor="e")
+        
+        # Draw month labels at the top
+        labeled_months = set()
+        for col in range(num_weeks):
+            first_day_of_week = start_date + timedelta(days=col * 7)
+            month_key = first_day_of_week.strftime("%Y-%m")
+            if month_key not in labeled_months:
+                if col == 0 or first_day_of_week.day <= 7:
+                    x0 = x_offset + col * (box_size + margin)
+                    self.canvas.create_text(x0, 8, text=first_day_of_week.strftime("%b"), 
+                                             font=("Segoe UI", 9, "bold"), fill=self.colors["text_muted"], anchor="w")
+                    labeled_months.add(month_key)
+        
+        # Draw the grid of contribution boxes
         for col in range(num_weeks):
             for row in range(7):
                 current_date = start_date + timedelta(days=(col * 7) + row)
-                if current_date > today:
-                    break
-                    
-                date_str = current_date.strftime("%Y-%m-%d")
-                mins = day_map.get(date_str, 0)
                 
-                # Intensity scale
-                if mins == 0:
-                    color = self.colors["progress_bg"]
-                elif mins < 30:
-                    color = "#3B2D59" # Dark purple
-                elif mins < 90:
-                    color = "#5A448A" # Mid purple
-                elif mins < 180:
-                    color = self.colors["accent"]
-                else:
-                    color = self.colors["accent_light"] # High intensity
-                    
-                x0 = col * (box_size + margin)
+                x0 = x_offset + col * (box_size + margin)
                 y0 = row * (box_size + margin)
                 x1 = x0 + box_size
                 y1 = y0 + box_size
                 
-                rect_id = self.canvas.create_rectangle(x0, y0 + 15, x1, y1 + 15, fill=color, outline="", tags=("box", date_str, str(mins)))
+                if current_date > today:
+                    # Draw future days as empty placeholder rounded squares
+                    self._create_rounded_rect(x0, y0 + 15, x1, y1 + 15, radius=2.5, 
+                                              fill=self.colors["progress_bg"], outline="")
+                    continue
+                    
+                date_str = current_date.strftime("%Y-%m-%d")
+                mins = day_map.get(date_str, 0)
                 
-                # Month Labels
-                if current_date.day == 1:
-                    self.canvas.create_text(x0, 8, text=current_date.strftime("%b"), 
-                                             font=("Segoe UI", 9), fill=self.colors["text_muted"], anchor="w")
-
+                # Dynamic Color Interpolation matching the accent theme
+                if mins == 0:
+                    color = self.colors["progress_bg"]
+                elif mins < 30:
+                    color = self._interpolate_color(self.colors["progress_bg"], self.colors["accent"], 0.25)
+                elif mins < 90:
+                    color = self._interpolate_color(self.colors["progress_bg"], self.colors["accent"], 0.6)
+                elif mins < 180:
+                    color = self.colors["accent"]
+                else:
+                    color = self.colors["accent_light"]
+                    
+                rect_id = self._create_rounded_rect(x0, y0 + 15, x1, y1 + 15, radius=2.5, 
+                                                    fill=color, outline="", tags=("box", date_str, str(mins)))
+                
                 # Hover bindings
                 self.canvas.tag_bind(rect_id, "<Enter>", lambda e, d=date_str, m=mins: self._on_hover(e, d, m))
                 self.canvas.tag_bind(rect_id, "<Leave>", self._on_leave)

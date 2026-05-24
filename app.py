@@ -36,8 +36,9 @@ from utils.event_bus import EventBus
 #  Splash Screen
 # ════════════════════════════════════════════════════════════
 class SplashScreen(tk.Toplevel):
-    def __init__(self, parent):
+    def __init__(self, parent, on_close_callback=None):
         super().__init__(parent)
+        self.on_close_callback = on_close_callback
         self.overrideredirect(True)
         self.attributes("-topmost", True)
 
@@ -90,7 +91,12 @@ class SplashScreen(tk.Toplevel):
                                 x2, self.height - 36)
             self.after(30, self._animate_bar)
         else:
-            self.after(200, self.destroy)
+            self.after(200, self._finish)
+
+    def _finish(self):
+        self.destroy()
+        if self.on_close_callback:
+            self.on_close_callback()
 
 
 # ════════════════════════════════════════════════════════════
@@ -154,6 +160,12 @@ class StudyReminderApp(ctk.CTk):
 
         # ── Icon ──
         try:
+            # Set taskbar icon correctly on Windows
+            if os.name == 'nt':
+                import ctypes
+                myappid = 'sfi.studyreminder.pro.1.0'
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+            
             ico = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
             if os.path.exists(ico):
                 self.iconbitmap(ico)
@@ -165,33 +177,89 @@ class StudyReminderApp(ctk.CTk):
         if self.db.settings.get("show_widget"):
             self._toggle_mini_panel(True)
 
-        # ── Layout ──
-        with open("debug_log.txt", "a") as log:
-            log.write(f"[{datetime.now()}] Building layout\n")
-        self._build_layout()
         self._active_page = None
         self._page_widgets = {}
         self._nav_btns = {}
 
-        with open("debug_log.txt", "a") as log:
-            log.write(f"[{datetime.now()}] Building sidebar and content\n")
+        # Hide window and show Splash Screen
+        self.withdraw()
+        self.splash = SplashScreen(self, on_close_callback=self._show_mode_selection)
+
+    def _show_mode_selection(self):
+        self.deiconify()
+        last_mode = self.db.settings.get("app_mode")
+        if last_mode:
+            self._on_mode_selected(last_mode)
+        else:
+            self.show_mode_selection_screen()
+
+    def show_mode_selection_screen(self):
+        if hasattr(self, "_sidebar") and self._sidebar:
+            try: self._sidebar.destroy()
+            except: pass
+        if hasattr(self, "_content") and self._content:
+            try: self._content.destroy()
+            except: pass
+            
+        for w in self._page_widgets.values():
+            if hasattr(w, "cleanup"):
+                w.cleanup()
+            try: w.destroy()
+            except: pass
+        self._page_widgets.clear()
+        self._nav_btns.clear()
+        self._active_page = None
+        
+        from ui.mode_selection import ModeSelectionView
+        self.mode_view = ModeSelectionView(self, self.colors, self.db, self._on_mode_selected)
+        self.mode_view.pack(fill="both", expand=True)
+
+    def _on_mode_selected(self, mode):
+        self.app_mode = mode
+        self.db.update_setting("app_mode", mode)
+
+        if hasattr(self, "mode_view") and self.mode_view:
+            try: self.mode_view.destroy()
+            except: pass
+            self.mode_view = None
+
+        if mode == "academic":
+            self.NAV_ITEMS = [
+                ("dashboard",  "🏠", "Dashboard"),
+                ("roadmap",    "🗺️", "Roadmap"),
+                ("tasks",      "📝", "Tasks"),
+                ("subjects",   "📚", "Subjects"),
+                ("pomodoro",   "🍅", "Pomodoro"),
+                ("analytics",  "📊", "Analytics"),
+                ("settings",   "⚙️", "Settings"),
+            ]
+        else:
+            self.NAV_ITEMS = [
+                ("dashboard",  "🌱", "Dashboard"),
+                ("habits",     "📅", "Habits"),
+                ("skills",     "🎓", "Skills"),
+                ("tasks",      "📝", "Tasks"),
+                ("pomodoro",   "🍅", "Pomodoro"),
+                ("analytics",  "📊", "Analytics"),
+                ("settings",   "⚙️", "Settings"),
+            ]
+
+        self._build_layout()
         self._build_sidebar()
         self._build_content_area()
 
-        # Force update to resolve dimensions
         self.update()
+        self.navigate("dashboard")
 
-        # Defer non-critical startup tasks
-        self.after(200, self._deferred_init)
+        if not hasattr(self, "_reminders_running"):
+            self._reminders_running = True
+            self.after(1000, self._check_reminders)
 
     def _deferred_init(self):
         """Heavy lifting deferred after initial frame render."""
         with open("debug_log.txt", "a") as log:
             log.write(f"[{datetime.now()}] Running deferred init\n")
             
-        # Navigate to dashboard
-        self.navigate("dashboard")
-
         # Start periodic checks
         self._check_reminders()
         
@@ -257,6 +325,14 @@ class StudyReminderApp(ctk.CTk):
         
         ctk.CTkFrame(footer, height=1, fg_color=c["border"]).pack(fill="x", pady=(0, 16))
         
+        btn_switch = ctk.CTkButton(
+            footer, text="🔄 Switch Focus Mode", font=FONTS["small"],
+            fg_color=c["bg_secondary"], hover_color=c["accent_hover"],
+            text_color=c["text_primary"], corner_radius=10, height=36,
+            command=self.show_mode_selection_screen
+        )
+        btn_switch.pack(fill="x", pady=(0, 10))
+
         self._streak_badge = ctk.CTkFrame(footer, fg_color=c["bg_card"],
                                           corner_radius=12, border_width=1,
                                           border_color=c["border"])
@@ -314,45 +390,53 @@ class StudyReminderApp(ctk.CTk):
         self._page_container.grid_columnconfigure(0, weight=1)
 
     # ── Navigation ────────────────────────────────────────────
-    def navigate(self, page_key):
+    def navigate(self, page_key, **kwargs):
         if hasattr(self, 'update_sidebar_streak'):
             self.update_sidebar_streak()
             
-        if self._active_page == page_key:
-            # Refresh current page
-            if page_key in self._page_widgets:
-                w = self._page_widgets[page_key]
-                if hasattr(w, "refresh"):
-                    w.refresh()
-            return
+        is_same_page = (self._active_page == page_key)
 
-        # Hide old page
-        if self._active_page and self._active_page in self._page_widgets:
-            self._page_widgets[self._active_page].grid_remove()
-            self._nav_btns[self._active_page].set_active(False)
+        if not is_same_page:
+            # Hide old page
+            if self._active_page and self._active_page in self._page_widgets:
+                self._page_widgets[self._active_page].grid_remove()
+                if self._active_page in self._nav_btns:
+                    self._nav_btns[self._active_page].set_active(False)
 
-        self._active_page = page_key
+            self._active_page = page_key
 
-        # Build page if not cached
-        if page_key not in self._page_widgets:
-            self._page_widgets[page_key] = self._build_page(page_key)
+            # Build page if not cached
+            if page_key not in self._page_widgets:
+                self._page_widgets[page_key] = self._build_page(page_key)
 
-        widget = self._page_widgets[page_key]
+            widget = self._page_widgets[page_key]
+            widget.grid(row=0, column=0, sticky="nsew")
+
+            # Update nav + title
+            if page_key in self._nav_btns:
+                self._nav_btns[page_key].set_active(True)
+            title_map = {k: l for k, _, l in self.NAV_ITEMS}
+            self._page_title_var.set(title_map.get(page_key, page_key.title()))
+        else:
+            widget = self._page_widgets[page_key]
+
+        # Apply parameters before refreshing
+        if hasattr(widget, "apply_navigation_params"):
+            widget.apply_navigation_params(**kwargs)
+
         if hasattr(widget, "refresh"):
             widget.refresh()
-        widget.grid(row=0, column=0, sticky="nsew")
-
-        # Update nav + title
-        self._nav_btns[page_key].set_active(True)
-        title_map = {k: l for k, _, l in self.NAV_ITEMS}
-        self._page_title_var.set(title_map.get(page_key, page_key.title()))
 
     def _build_page(self, key):
         c = self.colors
         p = self._page_container
 
         if key == "dashboard":
-            return DashboardView(p, self.db, c, self.toast, self.events)
+            if getattr(self, "app_mode", "academic") == "lifestyle":
+                from ui.lifestyle_dashboard import LifestyleDashboardView
+                return LifestyleDashboardView(p, self.db, c, self.toast, self.events)
+            else:
+                return DashboardView(p, self.db, c, self.toast, self.events)
         elif key == "roadmap":
             return RoadmapView(p, self.db, c)
         elif key == "tasks":
@@ -362,10 +446,20 @@ class StudyReminderApp(ctk.CTk):
         elif key == "pomodoro":
             return PomodoroView(p, self.db, c, self.toast)
         elif key == "analytics":
-            return AnalyticsView(p, self.db, c, self.toast)
+            if getattr(self, "app_mode", "academic") == "lifestyle":
+                from ui.lifestyle_analytics import LifestyleAnalyticsView
+                return LifestyleAnalyticsView(p, self.db, c, self.toast)
+            else:
+                return AnalyticsView(p, self.db, c, self.toast)
         elif key == "settings":
             return SettingsView(p, self.db, c, self.toast,
                                 theme_switch_fn=self.switch_theme)
+        elif key == "habits":
+            from ui.habits import HabitsView
+            return HabitsView(p, self.db, c, self.toast)
+        elif key == "skills":
+            from ui.skills import SkillsView
+            return SkillsView(p, self.db, c, self.toast)
         else:
             return ctk.CTkLabel(p, text="Page not found")
 

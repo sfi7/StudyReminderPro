@@ -240,10 +240,24 @@ class DashboardView(ctk.CTkScrollableFrame):
     def _start_focus(self, subj):
         app = self.winfo_toplevel()
         if hasattr(app, 'navigate'):
-            app.navigate("pomodoro")
+            app.navigate("pomodoro", subject_id=subj["id"])
+
+    def cleanup(self):
+        """Unsubscribe from event bus to prevent memory leaks."""
+        self.events.unsubscribe("TASK_COMPLETED", self._on_data_changed)
+        self.events.unsubscribe("LECTURE_COMPLETED", self._on_data_changed)
 
     def refresh(self):
         """Safely rebuild the dashboard contents."""
+        current_data_ver = self.db.data_version
+        current_settings_ver = self.db.settings_version
+        if (getattr(self, "_last_data_version", -1) == current_data_ver and 
+            getattr(self, "_last_settings_version", -1) == current_settings_ver):
+            return
+            
+        self._last_data_version = current_data_ver
+        self._last_settings_version = current_settings_ver
+
         for w in self._widgets:
             try:
                 w.destroy()
