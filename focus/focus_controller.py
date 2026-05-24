@@ -57,31 +57,48 @@ class FocusController:
         self.session_engine.remaining_seconds = snapshot["remaining_seconds"]
         self.session_engine.started_at = snapshot["started_at"]
         self.session_engine.interruptions = snapshot.get("interruptions", 0)
+        self.session_engine.mode = snapshot.get("mode", "Work")
+        self.session_engine.is_break = (self.session_engine.mode != "Work")
         self.session_engine.is_running = True
         self.session_engine.is_paused = True # Start paused for safety
         
         subj = self.db.get_subject(self.session_engine.subject_id)
+        if not subj:
+            # Fallback for skill or custom modes
+            if hasattr(self.db, "get_skill"):
+                subj = self.db.get_skill(self.session_engine.subject_id)
+            if not subj:
+                subj = {"name": "General Focus", "icon": "🎯", "color": self.app.theme_manager.colors["accent"]}
         
         self.ui = FocusUI(self, self.app.theme_manager)
-        self.ui.setup_ui(subj, self.session_engine.target_duration_min)
+        self.ui.setup_ui(subj, self.session_engine.target_duration_min, self.session_engine.mode)
         self.ui.show_fullscreen()
         
         self.ui.set_paused_state(True)
         self.ui.update_timer_display(self.session_engine.get_remaining_time())
         self._update_loop()
 
-    def start_focus(self, subject_id, duration_minutes):
+    def start_focus(self, subject_id, duration_minutes, mode="Work"):
         """Initializes and launches the fullscreen focus mode."""
         if self.session_engine.is_running:
             log.warning("Attempted to start focus mode while already running.")
             return
 
+        self.session_engine.mode = mode
+        self.session_engine.is_break = (mode != "Work")
         self.session_engine.start_session(subject_id, duration_minutes)
+        
         subj = self.db.get_subject(subject_id)
+        if not subj:
+            # Fallback for skill or custom modes
+            if hasattr(self.db, "get_skill"):
+                subj = self.db.get_skill(subject_id)
+            if not subj:
+                subj = {"name": "General Focus", "icon": "🎯", "color": self.app.theme_manager.colors["accent"]}
         
         # Create UI
         self.ui = FocusUI(self, self.app.theme_manager)
-        self.ui.setup_ui(subj, duration_minutes)
+        self.ui.setup_ui(subj, duration_minutes, mode)
         self.ui.show_fullscreen()
         
         # Start sound
@@ -112,10 +129,22 @@ class FocusController:
         if self.ui and self.ui.winfo_exists():
             self.ui.withdraw()
         self._is_minimized = True
+        total = self.session_engine.target_duration_min * 60
         if not self.overlay:
             self.overlay = FloatingOverlay(self, self.app.theme_manager)
-            self.overlay.update_timer_display(self.session_engine.get_remaining_time())
-            self.overlay.set_paused_state(self.session_engine.is_paused)
+        # Sync mode badge + colour
+        mode   = getattr(self.session_engine, "mode", "Work")
+        accent = self.app.theme_manager.colors["accent"]
+        if mode == "Work":
+            accent = self.app.theme_manager.colors["accent"]
+        elif "Break" in mode:
+            accent = self.app.theme_manager.colors.get("success", "#10B981")
+        else:
+            accent = self.app.theme_manager.colors.get("warning", "#F59E0B")
+        self.overlay.set_mode(mode, accent)
+        self.overlay.update_timer_display(
+            self.session_engine.get_remaining_time(), total_sec=total)
+        self.overlay.set_paused_state(self.session_engine.is_paused)
         self.overlay.deiconify()
 
     def restore_focus(self):
@@ -129,7 +158,8 @@ class FocusController:
 
     def toggle_mute(self):
         is_muted = self.sound_manager.toggle_mute()
-        self.ui.set_mute_state(is_muted)
+        if self.ui and self.ui.winfo_exists():
+            self.ui.set_mute_state(is_muted)
 
     def complete_session(self, forced=False):
         """Ends the session and cleans up."""
@@ -200,7 +230,8 @@ class FocusController:
         
         # Update Overlay
         if self.overlay and self.overlay.winfo_exists() and self._is_minimized:
-            self.overlay.update_timer_display(rem_sec)
+            total = self.session_engine.target_duration_min * 60
+            self.overlay.update_timer_display(rem_sec, total_sec=total)
 
         if rem_sec <= 0:
             self.complete_session(forced=False)
@@ -240,9 +271,17 @@ class FocusController:
         key = event.keysym.lower()
         if key == "space":
             self.pause_resume()
-        elif key == "escape":
+        elif key == "escape" or key == "e":
             self.exit_focus()
         elif key == "m":
             self.toggle_mute()
         elif key == "f":
             if self.ui: self.ui.toggle_fullscreen()
+        elif key == "a":
+            # Toggle analog / digital view
+            if self.ui and self.ui.winfo_exists():
+                self.ui._switch_view(not self.ui._analog_mode)
+        elif key == "s":
+            # Add a segment / lap mark
+            if self.ui and self.ui.winfo_exists():
+                self.ui._add_segment()

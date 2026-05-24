@@ -63,6 +63,54 @@ class SoundManager:
         except Exception as e:
             log.error(f"Error stopping sound: {e}")
 
+    def change_ambient_sound(self, sound_name: str):
+        """
+        Play an ambient sound by display name.
+        Prefers HQ MP3 files; falls back to synthetic WAV if HQ is missing.
+        """
+        sound_map = {
+            "Silence":      None,
+            "Clock Ticking": [
+                "assets/sounds/clock_hq.mp3",
+                "assets/sounds/tick_tock.wav",
+            ],
+            "Rain":         [
+                "assets/sounds/rain_hq.mp3",
+                "assets/sounds/rain.wav",
+            ],
+            "Ocean Waves":  [
+                "assets/sounds/waves_hq.mp3",
+                "assets/sounds/waves.wav",
+            ],
+            "Wind":         [
+                "assets/sounds/wind.wav",
+            ],
+        }
+        candidates = sound_map.get(sound_name)
+
+        try:
+            self.settings["focus_ambient_sound"] = sound_name
+        except Exception:
+            pass
+
+        if not candidates:
+            self.stop_ambient()
+            return
+
+        # Pick first file that actually exists
+        chosen = None
+        for p in candidates:
+            if os.path.exists(p):
+                chosen = p
+                break
+
+        if chosen:
+            self.play_ambient(chosen)
+        else:
+            log.warning(f"No audio file found for sound '{sound_name}'")
+            self.stop_ambient()
+
+
     def toggle_mute(self):
         if not PYGAME_AVAILABLE:
             return False
@@ -74,6 +122,37 @@ class SoundManager:
         else:
             pygame.mixer.music.set_volume(self._volume)
             return False # Is not muted
+
+    def set_volume(self, value: float):
+        """
+        Set master volume for ambient + chime sounds.
+        value: float 0.0 (silent) → 1.0 (full).
+        Does NOT touch notification/alarm settings.
+        """
+        self._volume = max(0.0, min(1.0, float(value)))
+        if PYGAME_AVAILABLE:
+            try:
+                pygame.mixer.music.set_volume(self._volume)
+            except Exception:
+                pass
+        # Persist to settings key 'focus_volume' only
+        try:
+            self.settings["focus_volume"] = self._volume
+        except Exception:
+            pass
+
+    def get_volume(self) -> float:
+        """Returns current volume (0.0–1.0)."""
+        return self._volume
+
+    @property
+    def is_muted(self) -> bool:
+        if not PYGAME_AVAILABLE:
+            return False
+        try:
+            return pygame.mixer.music.get_volume() == 0
+        except Exception:
+            return False
 
     def _load_sound(self, path):
         """Safely loads a Sound object if file exists."""
